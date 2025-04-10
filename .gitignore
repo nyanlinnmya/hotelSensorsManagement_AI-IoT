@@ -1,4 +1,6 @@
 __pycache__
 0venvAltotechHotelSensorsManagement
 data
-setup/rabbitmq
+setup/rabbitmq_data
+setup/supabase_data
+setup/postgres_data

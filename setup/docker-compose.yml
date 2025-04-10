@@ -9,18 +9,19 @@ services:
       - "15672:15672"  # Management UI
       - "1883:1883"  # MQTT (optional)
     volumes:
-      - ./rabbitmq_data:/var/lib/rabbitmq
+      # - ./rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
     environment:
       - RABBITMQ_DEFAULT_USER= admin
       - RABBITMQ_DEFAULT_PASS= secret
-      - RABBITMQ_DEFAULT_VHOST= /
+      # - RABBITMQ_DEFAULT_VHOST= /
     restart: unless-stopped
 
 
   timescaledb:
     image: timescale/timescaledb-ha:pg17
     container_name: timescaledb
+    hostname: timescaledb-host
     ports:
       - "5433:5433"  # Internal PostgreSQL port remains 5432
     environment:
@@ -28,35 +29,50 @@ services:
       - POSTGRES_PASSWORD=secret
       - POSTGRES_DB=sensor_data
     volumes:
-      - ./timescaledb_data:/var/lib/postgresql/data
+      - ./init_timescale.sql:/docker-entrypoint-initdb.d/init.sql  # Auto-execute
+    #   - ./timescaledb_data:/var/lib/postgresql/data
     restart: unless-stopped
+
 
   supabase-postgres:
     image: supabase/postgres:15.8.1.060
     container_name: supabase_db
+    hostname: supabase_db-host
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_PASSWORD=secret
       - POSTGRES_DB=supabase
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=secret
     volumes:
-      - ./supabase_data:/var/lib/postgresql/data
+      - ./init_supabase.sql:/docker-entrypoint-initdb.d/init.sql  # Auto-execute
+    #  - ./supabase_data:/var/lib/postgresql/data
     restart: unless-stopped
   
+
   supabase-realtime:
     image: supabase/realtime:v2.34.43
-    container_name: supabase_realtime
+    container_name: supabase_db-realtime
+    hostname: supabase-realtime-host
     ports:
-      - "4000:4000"
+      - "4000:4000"  # Realtime API
     environment:
-      - DB_HOST=supabase_db
+      - DB_HOST=supabase_db-host  # Use the hostname of the supabase-postgres container
       - DB_PORT=5432
       - DB_USER=postgres
-      - DB_PASSWORD=secret
+      - DB_PASSWORD=secret  # Matches supabase-postgres
       - DB_NAME=supabase
       - DB_SSL=false
-      - JWT_SECRET=your_jwt_secret_here
-      - API_JWT_SECRET=your_api_jwt_secret
+      - JWT_SECRET=your_super_secret_jwt_32_chars_or_more  # For auth
+      - API_JWT_SECRET=your_api_secret_32_chars_or_more     # For API calls
+      - SECRET_KEY_BASE=your_generated_64_character_key_here
+      - APP_NAME=hotelSensorsManagement
+      - PORT=4000
+      - SECURE_CHANNELS=true  # Enable for production
+      - RLIMIT_NOFILE=1048576  # Set the variable
+      - FLY_ALLOC_ID=
+      - FLY_APP_NAME=
+      - RELEASE_DISTRIBUTION=none  # Disable clustering
+      - LIBCLUSTER_ENABLED=false  # Disable clustering
     depends_on:
       - supabase-postgres
-    restart: unless-stopped
