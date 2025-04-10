@@ -16,3 +16,47 @@ services:
       - RABBITMQ_DEFAULT_PASS= secret
       - RABBITMQ_DEFAULT_VHOST= /
     restart: unless-stopped
+
+
+  timescaledb:
+    image: timescale/timescaledb-ha:pg17
+    container_name: timescaledb
+    ports:
+      - "5433:5433"  # Internal PostgreSQL port remains 5432
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=sensor_data
+    volumes:
+      - ./timescaledb_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  supabase-postgres:
+    image: supabase/postgres:15.8.1.060
+    container_name: supabase_db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=supabase
+    volumes:
+      - ./supabase_data:/var/lib/postgresql/data
+    restart: unless-stopped
+  
+  supabase-realtime:
+    image: supabase/realtime:v2.34.43
+    container_name: supabase_realtime
+    ports:
+      - "4000:4000"
+    environment:
+      - DB_HOST=supabase_db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=secret
+      - DB_NAME=supabase
+      - DB_SSL=false
+      - JWT_SECRET=your_jwt_secret_here
+      - API_JWT_SECRET=your_api_jwt_secret
+    depends_on:
+      - supabase-postgres
+    restart: unless-stopped
