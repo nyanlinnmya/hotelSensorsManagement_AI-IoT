@@ -22,3 +22,20 @@ QUEUES = {
 # Routing Keys (e.g., "room101.iaq", "room101.presence")
 def get_routing_key(room_id: str, sensor_type: str) -> str:
     return f"{room_id}.{sensor_type}"
+
+
+TIMESCALE_CONFIG = {
+    "host": "localhost",
+    "port": 5433,
+    "user": "admin",
+    "password": "secret",
+    "dbname": "sensor_data",
+}
+
+SUPABASE_CONFIG = {
+    "host": "localhost",
+    "port": 5432,
+    "user": "postgres",
+    "password": "secret",
+    "dbname": "supabase",
+}
