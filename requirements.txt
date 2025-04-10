@@ -1,0 +1,5 @@
+rabbitmq
+pika
+numpy
+pandas
+psycopg2
