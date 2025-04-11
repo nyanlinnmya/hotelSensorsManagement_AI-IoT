@@ -38,11 +38,10 @@ class SensorSimulator:
 
     def generate_power_data(self) -> dict:
         """Generate power meter data (spikes when occupied)."""
-        base_power = [random.uniform(3.5, 5.0) for _ in range(6)]
+        base_power = random.uniform(3.5, 5.0)
         if self.occupancy_state == "occupied":
-            base_power = [p * random.uniform(1.1, 1.5) for p in base_power]
+            base_power *= random.uniform(1.1, 1.5)
         return {
             "datetime": self._generate_datetime(),
-            **{f"power_kw_power_meter_{i+1}": round(base_power[i] + random.uniform(-0.2, 0.2), 2)
-               for i in range(6)},
+            "power_consumption_kw": round(base_power + random.uniform(-0.2, 0.2), 2),
         }
