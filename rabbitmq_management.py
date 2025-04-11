@@ -1,30 +1,23 @@
+# rabbitmq_management.py
+
 import pika
 import json
 import logging
-from typing import Callable, Optional
+from typing import Callable
 from config import RABBITMQ_CONFIG
 
-# Configure logging
+# Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Suppress Pika INFO logs
 logging.getLogger("pika").setLevel(logging.ERROR)
-# Optional: suppress other noisy libraries
-logging.getLogger("pika.adapters").setLevel(logging.ERROR)
-logging.getLogger("pika.channel").setLevel(logging.ERROR)
-logging.getLogger("pika.connection").setLevel(logging.ERROR)
-logging.getLogger("pika.adapters.utils").setLevel(logging.ERROR)
 
 class RabbitMQManager:
     def __init__(self):
-        """Initialize connection and channel with retry logic."""
         self.connection = None
         self.channel = None
         self.connect()
 
     def connect(self):
-        """Establish RabbitMQ connection with error handling."""
         try:
             credentials = pika.PlainCredentials(
                 RABBITMQ_CONFIG["user"],
@@ -39,78 +32,51 @@ class RabbitMQManager:
                     heartbeat=600,
                 )
             )
-            
             self.channel = self.connection.channel()
             logger.info("Connected to RabbitMQ")
         except Exception as e:
             logger.error(f"Connection failed: {e}")
             raise
 
-    def publish(
-        self, exchange: str, routing_key: str, message: dict, exchange_type: str = "topic"
-    ):
-        """Publish a message to a topic exchange."""
+    def publish(self, exchange: str, routing_key: str, message: dict, exchange_type: str = "topic"):
         try:
-            # Declare exchange (idempotent)
-            self.channel.exchange_declare(
-                exchange=exchange,
-                exchange_type=exchange_type,
-                durable=True
-            )
+            self.channel.exchange_declare(exchange=exchange, exchange_type=exchange_type, durable=True)
             self.channel.basic_publish(
                 exchange=exchange,
                 routing_key=routing_key,
                 body=json.dumps(message),
-                properties=pika.BasicProperties(delivery_mode=2),  # Persistent message
+                properties=pika.BasicProperties(delivery_mode=2)
             )
             logger.debug(f"Published to {exchange}.{routing_key}: {message}")
         except Exception as e:
             logger.error(f"Publish failed: {e}")
             self.reconnect()
 
-    def subscribe(
-        self,
-        exchange: str,
-        queue_name: str,
-        routing_key: str,
-        callback: Callable,
-        exchange_type: str = "topic",
-    ):
-        """Subscribe to a queue with a callback."""
+    def subscribe(self, exchange: str, queue_name: str, routing_key: str, callback: Callable, exchange_type: str = "topic"):
         try:
-            self.channel.exchange_declare(
-                exchange=exchange,
-                exchange_type=exchange_type,
-                durable=True,
-                passive=True  # Passive to check if it exists
-            )
-            self.channel.queue_declare(
-                queue=queue_name,
-                durable=True)
-            self.channel.queue_bind(
-                queue=queue_name,
-                exchange=exchange,
-                routing_key=routing_key
-            )
-            self.channel.basic_consume(
-                queue=queue_name,
-                on_message_callback=callback,
-                auto_ack=False,  # Manual acknowledgments
-            )
+            self.channel.exchange_declare(exchange=exchange, exchange_type=exchange_type, durable=True, passive=True)
+            self.channel.queue_declare(queue=queue_name, durable=True)
+            self.channel.queue_bind(queue=queue_name, exchange=exchange, routing_key=routing_key)
+            self.channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=False)
             logger.info(f"Subscribed to {exchange}.{routing_key}")
-            self.channel.start_consuming()
         except Exception as e:
             logger.error(f"Subscription failed: {e}")
             self.reconnect()
 
+    def start_consuming(self):
+        try:
+            logger.info("Starting to consume...")
+            self.channel.start_consuming()
+        except Exception as e:
+            logger.error(f"Error in start_consuming: {e}")
+            self.reconnect()
+
     def reconnect(self):
-        """Attempt to reconnect on failure."""
         if self.connection and not self.connection.is_closed:
             self.connection.close()
         self.connect()
 
     def close(self):
-        """Cleanup connections."""
         if self.connection and self.connection.is_open:
             self.connection.close()
             logger.info("RabbitMQ connection closed")
