@@ -15,6 +15,11 @@ services:
       - RABBITMQ_DEFAULT_USER=admin
       - RABBITMQ_DEFAULT_PASS=secret
       - RABBITMQ_DEFAULT_VHOST=/
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
 
@@ -76,3 +81,24 @@ services:
       - LIBCLUSTER_ENABLED=false  # Disable clustering
     depends_on:
       - supabase-postgres
+
+
+  sensors_publisher:
+    build:
+      context: ..
+    container_name: sensors_publisher
+    command: ["python", "sensors_publisher.py"]
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  sensors_subscriber:
+    build:
+      context: ..
+    container_name: sensors_subscriber
+    command: ["python", "sensors_subscriber.py"]
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
