@@ -8,6 +8,14 @@ from config import RABBITMQ_CONFIG
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Suppress Pika INFO logs
+logging.getLogger("pika").setLevel(logging.ERROR)
+# Optional: suppress other noisy libraries
+logging.getLogger("pika.adapters").setLevel(logging.ERROR)
+logging.getLogger("pika.channel").setLevel(logging.ERROR)
+logging.getLogger("pika.connection").setLevel(logging.ERROR)
+logging.getLogger("pika.adapters.utils").setLevel(logging.ERROR)
+
 class RabbitMQManager:
     def __init__(self):
         """Initialize connection and channel with retry logic."""

@@ -3,4 +3,4 @@ __pycache__
 data
 setup/rabbitmq_data
 setup/supabase_data
-setup/postgres_data
+setup/timescaledb_data

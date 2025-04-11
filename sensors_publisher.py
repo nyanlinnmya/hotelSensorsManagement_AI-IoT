@@ -3,6 +3,11 @@ from sensors_simulator import SensorSimulator
 from rabbitmq_management import RabbitMQManager
 from config import EXCHANGES, get_routing_key
 
+import logging
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 class SensorPublisher:
     def __init__(self, room_id: str):
         self.room_id = room_id
