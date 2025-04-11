@@ -27,7 +27,8 @@ class RabbitMQManager:
         """Establish RabbitMQ connection with error handling."""
         try:
             credentials = pika.PlainCredentials(
-                RABBITMQ_CONFIG["user"], RABBITMQ_CONFIG["password"]
+                RABBITMQ_CONFIG["user"],
+                RABBITMQ_CONFIG["password"]
             )
             self.connection = pika.BlockingConnection(
                 pika.ConnectionParameters(
@@ -52,7 +53,9 @@ class RabbitMQManager:
         try:
             # Declare exchange (idempotent)
             self.channel.exchange_declare(
-                exchange=exchange, exchange_type=exchange_type, durable=True
+                exchange=exchange,
+                exchange_type=exchange_type,
+                durable=True
             )
             self.channel.basic_publish(
                 exchange=exchange,
@@ -75,10 +78,19 @@ class RabbitMQManager:
     ):
         """Subscribe to a queue with a callback."""
         try:
-            self.channel.exchange_declare(exchange=exchange, exchange_type=exchange_type)
-            self.channel.queue_declare(queue=queue_name, durable=True)
+            self.channel.exchange_declare(
+                exchange=exchange,
+                exchange_type=exchange_type,
+                durable=True,
+                passive=True  # Passive to check if it exists
+            )
+            self.channel.queue_declare(
+                queue=queue_name,
+                durable=True)
             self.channel.queue_bind(
-                queue=queue_name, exchange=exchange, routing_key=routing_key
+                queue=queue_name,
+                exchange=exchange,
+                routing_key=routing_key
             )
             self.channel.basic_consume(
                 queue=queue_name,
@@ -106,13 +118,13 @@ class RabbitMQManager:
 # Test the connection and queue creation
 # This part is for testing the connection and queue creation
 if __name__ == "__main__":
-    print(f"Trying to connect with: {RABBITMQ_CONFIG['user']}:{RABBITMQ_CONFIG['password']}@{RABBITMQ_CONFIG['host']}:{RABBITMQ_CONFIG['port']}")
+    print(f"Trying to connect with:{RABBITMQ_CONFIG['user']}:{RABBITMQ_CONFIG['password']}@{RABBITMQ_CONFIG['host']}:{RABBITMQ_CONFIG['port']}")
 
     try:
         connection=RabbitMQManager()
         print("✅ Connection successful!")
         channel = connection.connection.channel()
-        channel.queue_declare(queue='test_queue')
+        channel.queue_declare(queue='test_queue', durable=True)
         print("✅ Queue created successfully!")
         connection.close()
         

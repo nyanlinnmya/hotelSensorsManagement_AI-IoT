@@ -12,8 +12,8 @@ services:
       # - ./rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
     environment:
-      - RABBITMQ_DEFAULT_USER= admin
-      - RABBITMQ_DEFAULT_PASS= secret
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=secret
       # - RABBITMQ_DEFAULT_VHOST= /
     restart: unless-stopped
 
