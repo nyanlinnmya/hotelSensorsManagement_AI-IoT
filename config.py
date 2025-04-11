@@ -3,7 +3,8 @@ ROOM_IDS = ["room101",
             "room102"]
 
 RABBITMQ_CONFIG = {
-    "host": "rabbitmq",
+    # "host": "rabbitmq",
+    "host": "localhost",
     "port": 5672,
     "user": "admin",
     "password": "secret",

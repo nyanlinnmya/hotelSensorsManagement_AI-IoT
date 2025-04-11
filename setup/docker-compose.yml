@@ -83,22 +83,22 @@ services:
       - supabase-postgres
 
 
-  sensors_publisher:
-    build:
-      context: ..
-    container_name: sensors_publisher
-    command: ["python", "sensors_publisher.py"]
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    restart: unless-stopped
+  # sensors_publisher:
+  #   build:
+  #     context: ..
+  #   container_name: sensors_publisher
+  #   command: ["python", "sensors_publisher.py"]
+  #   depends_on:
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   restart: unless-stopped
 
-  sensors_subscriber:
-    build:
-      context: ..
-    container_name: sensors_subscriber
-    command: ["python", "sensors_subscriber.py"]
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    restart: unless-stopped
+  # sensors_subscriber:
+  #   build:
+  #     context: ..
+  #   container_name: sensors_subscriber
+  #   command: ["python", "sensors_subscriber.py"]
+  #   depends_on:
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   restart: unless-stopped

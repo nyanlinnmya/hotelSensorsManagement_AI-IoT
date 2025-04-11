@@ -2,7 +2,6 @@
 CREATE TABLE raw_data (
     timestamp INTEGER,
     datetime TIMESTAMPTZ DEFAULT NOW(),
-    room_id TEXT NOT NULL,
     device_id TEXT NOT NULL,
     datapoint TEXT NOT NULL,
     value TEXT NOT NULL

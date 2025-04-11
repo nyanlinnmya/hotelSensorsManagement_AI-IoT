@@ -1,5 +1,3 @@
-# sensors_publisher.py
-
 import time
 import logging
 from threading import Thread, local
@@ -31,11 +29,19 @@ class SensorPublisher:
         while self.running:
             data = self.simulator.generate_iaq_data()
             routing_key = get_routing_key(self.room_id, "iaq")
+            
+            # Send the payload with room_id and data
+            payload = {
+                "room_id": self.room_id,
+                "data": data
+            }
+
             get_thread_local_manager().publish(
                 EXCHANGES["sensor_data"],
                 routing_key,
-                {"room_id": self.room_id, "data": data}
+                payload
             )
+            
             logger.info(f"[{self.room_id}] Published IAQ to '{routing_key}': {data}")
             time.sleep(60)
 
@@ -43,11 +49,19 @@ class SensorPublisher:
         while self.running:
             data = self.simulator.generate_presence_data()
             routing_key = get_routing_key(self.room_id, "presence")
+            
+            # Send the payload with room_id and data
+            payload = {
+                "room_id": self.room_id,
+                "data": data
+            }
+
             get_thread_local_manager().publish(
                 EXCHANGES["sensor_data"],
                 routing_key,
-                {"room_id": self.room_id, "data": data}
+                payload
             )
+
             logger.info(f"[{self.room_id}] Published Presence to '{routing_key}': {data}")
             time.sleep(1)
 
@@ -55,11 +69,19 @@ class SensorPublisher:
         while self.running:
             data = self.simulator.generate_power_data()
             routing_key = get_routing_key(self.room_id, "power")
+            
+            # Send the payload with room_id and data
+            payload = {
+                "room_id": self.room_id,
+                "data": data
+            }
+
             get_thread_local_manager().publish(
                 EXCHANGES["sensor_data"],
                 routing_key,
-                {"room_id": self.room_id, "data": data}
+                payload
             )
+
             logger.info(f"[{self.room_id}] Published Power to '{routing_key}': {data}")
             time.sleep(60)
 
