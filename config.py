@@ -1,3 +1,7 @@
+# Define your room IDs here
+ROOM_IDS = ["room101",
+            "room102"]
+
 RABBITMQ_CONFIG = {
     "host": "localhost",
     "port": 5672,
