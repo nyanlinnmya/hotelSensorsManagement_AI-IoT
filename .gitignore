@@ -4,4 +4,4 @@ data
 setup/rabbitmq_data
 setup/supabase_data
 setup/timescaledb_data
-timescale_subscriber.py
+supabase-setup.py

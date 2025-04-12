@@ -39,6 +39,7 @@ def sensor_callback(ch, method, properties, body):
         datapoint = routing_key.split(".")[-1]
 
         if datapoint == "iaq":
+            # Handling IAQ (temperature, humidity, co2)
             for key in ["temperature", "humidity", "co2"]:
                 if key in data:
                     log_data = format_message(room_id, key, data[key])
@@ -46,18 +47,21 @@ def sensor_callback(ch, method, properties, body):
                     db_writer.insert_sensor_data(log_data)
 
         elif datapoint == "presence":
+            # Handling presence state
             presence_state = data.get("presence_state")
             log_data = format_message(room_id, "presence", presence_state)
             logger.info(log_data)
             db_writer.insert_sensor_data(log_data)
 
         elif datapoint == "power":
+            # Handling power data
             power_value = data.get("power")
             log_data = format_message(room_id, "power", power_value)
             logger.info(log_data)
             db_writer.insert_sensor_data(log_data)
 
         else:
+            # Handle unrecognized datapoint
             logger.warning(f"Unhandled datapoint: {datapoint} from {routing_key}")
 
         ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -70,6 +74,7 @@ if __name__ == "__main__":
     manager = RabbitMQManager()
 
     try:
+        # Subscribe for all rooms and sensor types
         for room_id in ROOM_IDS:
             for sensor_type in ["iaq", "presence", "power"]:
                 routing_key = f"{room_id}.{sensor_type}"

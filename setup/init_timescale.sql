@@ -11,4 +11,4 @@ CREATE TABLE raw_data (
 SELECT create_hypertable('raw_data', 'datetime');
 
 -- Add indexes for efficient room-based queries
-CREATE INDEX idx_raw_data_room_id ON raw_data (room_id);
+CREATE INDEX idx_raw_data_room_id ON raw_data(device_id);
