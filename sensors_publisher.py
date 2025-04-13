@@ -42,7 +42,7 @@ class SensorPublisher:
                 payload
             )
             
-            logger.info(f"[{self.room_id}] Published IAQ to '{routing_key}': {data}")
+            logger.info(f"[Publisher] [{self.room_id}] Published IAQ to '{routing_key}': {data}")
             time.sleep(60)
 
     def publish_presence(self):
@@ -62,7 +62,7 @@ class SensorPublisher:
                 payload
             )
 
-            logger.info(f"[{self.room_id}] Published Presence to '{routing_key}': {data}")
+            logger.info(f"[Publisher] [{self.room_id}] Published Presence to '{routing_key}': {data}")
             time.sleep(1)
 
     def publish_power(self):
@@ -82,18 +82,18 @@ class SensorPublisher:
                 payload
             )
 
-            logger.info(f"[{self.room_id}] Published Power to '{routing_key}': {data}")
+            logger.info(f"[Publisher] [{self.room_id}] Published Power to '{routing_key}': {data}")
             time.sleep(60)
 
     def start_publishing(self):
         Thread(target=self.publish_iaq, daemon=True).start()
         Thread(target=self.publish_presence, daemon=True).start()
         Thread(target=self.publish_power, daemon=True).start()
-        logger.info(f"Started publishing threads for room: {self.room_id}")
+        logger.info(f"[Publisher] Started publishing threads for room: {self.room_id}")
 
     def stop_publishing(self):
         self.running = False
-        logger.info(f"Stopped publishing for room: {self.room_id}")
+        logger.info(f"[Publisher] Stopped publishing for room: {self.room_id}")
 
 
 if __name__ == "__main__":
@@ -109,9 +109,9 @@ if __name__ == "__main__":
             time.sleep(1)
 
     except KeyboardInterrupt:
-        logger.info("Keyboard interrupt received. Stopping publishers...")
+        logger.info("[Publisher] Keyboard interrupt received. Stopping publishers...")
         for publisher in publishers:
             publisher.stop_publishing()
 
     finally:
-        logger.info("Shutting down... Done.")
+        logger.info("[Publisher] Shutting down... Done.")

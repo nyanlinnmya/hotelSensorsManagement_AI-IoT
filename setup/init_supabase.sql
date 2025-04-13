@@ -18,10 +18,10 @@ CREATE TABLE IF NOT EXISTS room_sensors (
 CREATE TABLE IF NOT EXISTS room_states (
     room_id TEXT PRIMARY KEY,
     is_occupied BOOLEAN NOT NULL,
-    last_occupied TIMESTAMPTZ NOT NULL,
-    fault_state BOOLEAN NOT NULL,
-    last_fault TIMESTAMPTZ NOT NULL,
-    health_status TEXT CHECK (health_status IN ('healthy', 'warning', 'critical'))
+    vacancy_last_updated TIMESTAMPTZ NOT NULL,
+    datapoint TEXT NOT NULL,
+    health_status TEXT CHECK (health_status IN ('healthy', 'warning', 'critical')),
+    last_updated TIMESTAMPTZ NOT NULL
 );
 
 -- Set the pg_cron configuration so that the current database ('supabase') is used.
@@ -49,9 +49,10 @@ SELECT
     s.presence_state,
     s.power_data,
     st.is_occupied,
+    st.vacancy_last_updated,
+    st.datapoint,
     st.health_status,
-    st.fault_state AS current_fault,
-    st.last_fault
+    st.last_updated
 FROM room_sensors s
 JOIN room_states st ON s.room_id = st.room_id;
 
