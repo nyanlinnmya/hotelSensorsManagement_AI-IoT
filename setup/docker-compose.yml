@@ -42,15 +42,18 @@ services:
   supabase-postgres:
     image: supabase/postgres:17.4.1.014
     container_name: supabase-postgres
-    hostname: supabase_db-host
+    hostname: supabase-postgres
     ports:
       - "5432:5432"
     environment:
       - POSTGRES_DB=supabase
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=secret
+      # - POSTGRES_CUSTOM_CONFIG=/etc/postgresql-custom.conf
     volumes:
       - ./init_supabase.sql:/docker-entrypoint-initdb.d/init_supabase.sql:ro  # Auto-execute
+      # - ./postgresql.conf:/etc/postgresql-custom.conf:ro
+  # Mount custom config
     #  - ./supabase_data:/var/lib/postgresql/data
     restart: unless-stopped
   
@@ -81,7 +84,12 @@ services:
       - LIBCLUSTER_ENABLED=false  # Disable clustering
     depends_on:
       - supabase-postgres
-
+    restart: unless-stopped
+    
+networks:
+  default:
+    name: supabase-network
+    driver: bridge
 
   # sensors_publisher:
   #   build:
