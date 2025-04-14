@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS room_states (
     vacancy_last_updated TIMESTAMPTZ NOT NULL,
     datapoint TEXT NOT NULL,
     health_status TEXT CHECK (health_status IN ('healthy', 'warning', 'critical')),
-    last_updated TIMESTAMPTZ NOT NULL
+    datapoint_last_updated TIMESTAMPTZ NOT NULL
 );
 
 -- Set the pg_cron configuration so that the current database ('supabase') is used.

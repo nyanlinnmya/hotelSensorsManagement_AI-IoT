@@ -7,3 +7,4 @@ setup/timescaledb_data
 supabase-setup.py
 hotel-iot-management
 agents.py
+fault_detection_agent.py

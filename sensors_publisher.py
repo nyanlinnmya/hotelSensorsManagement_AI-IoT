@@ -1,117 +1,106 @@
-import time
+import asyncio
 import logging
-from threading import Thread, local
-from config import ROOM_IDS, get_routing_key, EXCHANGES
-from sensors_simulator import SensorSimulator
-from rabbitmq_management import RabbitMQManager
+import pytz
+from datetime import datetime
+import aio_pika
+import json
 
-# Configure logging
+from config import ROOM_IDS, get_routing_key, EXCHANGES, RABBITMQ_CONFIG
+from sensors_simulator import SensorSimulator
+
+# Logging setup
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Thread-local storage for RabbitMQManager
-_thread_local = local()
-
-def get_thread_local_manager() -> RabbitMQManager:
-    """Ensure each thread has its own RabbitMQManager (connection + channel)."""
-    if not hasattr(_thread_local, "manager"):
-        _thread_local.manager = RabbitMQManager()
-    return _thread_local.manager
-
-
-class SensorPublisher:
-    def __init__(self, room_id: str):
+class AsyncSensorPublisher:
+    def __init__(self, room_id, exchange):
         self.room_id = room_id
         self.simulator = SensorSimulator(room_id)
-        self.running = True
+        self.exchange = exchange
 
-    def publish_iaq(self):
-        while self.running:
-            data = self.simulator.generate_iaq_data()
+    def _get_time(self):
+        now = datetime.now(pytz.timezone("Asia/Bangkok"))
+        return int(now.timestamp()), now.isoformat()
+
+    async def publish(self, routing_key, payload):
+        try:
+            await self.exchange.publish(
+                aio_pika.Message(body=json.dumps(payload).encode()),
+                routing_key=routing_key
+            )
+            logger.info(f"[Publisher] [{self.room_id}] Published to '{routing_key}': {payload['data']}")
+        except Exception as e:
+            logger.error(f"[Publisher] [{self.room_id}] Failed to publish to '{routing_key}': {e}")
+
+    async def publish_iaq(self):
+        while True:
+            ts, dt_str = self._get_time()
+            data = self.simulator.generate_iaq_data(ts, dt_str)
             routing_key = get_routing_key(self.room_id, "iaq")
-            
-            # Send the payload with room_id and data
-            payload = {
-                "room_id": self.room_id,
-                "data": data
-            }
+            payload = {"room_id": self.room_id, "data": data}
+            await self.publish(routing_key, payload)
+            await asyncio.sleep(60)
 
-            get_thread_local_manager().publish(
-                EXCHANGES["sensor_data"],
-                routing_key,
-                payload
-            )
-            
-            logger.info(f"[Publisher] [{self.room_id}] Published IAQ to '{routing_key}': {data}")
-            time.sleep(60)
-
-    def publish_presence(self):
-        while self.running:
-            data = self.simulator.generate_presence_data()
+    async def publish_presence(self):
+        while True:
+            ts, dt_str = self._get_time()
+            data = self.simulator.generate_presence_data(ts, dt_str)
             routing_key = get_routing_key(self.room_id, "presence")
-            
-            # Send the payload with room_id and data
-            payload = {
-                "room_id": self.room_id,
-                "data": data
-            }
+            payload = {"room_id": self.room_id, "data": data}
+            await self.publish(routing_key, payload)
+            await asyncio.sleep(1)
 
-            get_thread_local_manager().publish(
-                EXCHANGES["sensor_data"],
-                routing_key,
-                payload
-            )
-
-            logger.info(f"[Publisher] [{self.room_id}] Published Presence to '{routing_key}': {data}")
-            time.sleep(1)
-
-    def publish_power(self):
-        while self.running:
-            data = self.simulator.generate_power_data()
+    async def publish_power(self):
+        while True:
+            ts, dt_str = self._get_time()
+            data = self.simulator.generate_power_data(ts, dt_str)
             routing_key = get_routing_key(self.room_id, "power")
-            
-            # Send the payload with room_id and data
-            payload = {
-                "room_id": self.room_id,
-                "data": data
-            }
+            payload = {"room_id": self.room_id, "data": data}
+            await self.publish(routing_key, payload)
+            await asyncio.sleep(60)
 
-            get_thread_local_manager().publish(
-                EXCHANGES["sensor_data"],
-                routing_key,
-                payload
-            )
-
-            logger.info(f"[Publisher] [{self.room_id}] Published Power to '{routing_key}': {data}")
-            time.sleep(60)
-
-    def start_publishing(self):
-        Thread(target=self.publish_iaq, daemon=True).start()
-        Thread(target=self.publish_presence, daemon=True).start()
-        Thread(target=self.publish_power, daemon=True).start()
+    async def start(self):
         logger.info(f"[Publisher] Started publishing threads for room: {self.room_id}")
+        await asyncio.gather(
+            self.publish_iaq(),
+            self.publish_presence(),
+            self.publish_power()
+        )
 
-    def stop_publishing(self):
-        self.running = False
-        logger.info(f"[Publisher] Stopped publishing for room: {self.room_id}")
+async def main():
+    try:
+        logger.info("[Publisher] Connecting to RabbitMQ...")
+        connection = await aio_pika.connect_robust(
+            host=RABBITMQ_CONFIG["host"],
+            port=RABBITMQ_CONFIG["port"],
+            login=RABBITMQ_CONFIG["user"],
+            password=RABBITMQ_CONFIG["password"],
+            virtualhost=RABBITMQ_CONFIG["vhost"]
+        )
 
+        async with connection:
+            channel = await connection.channel()
+            logger.info("[Publisher] ✅ Connected to RabbitMQ.")
+
+            # Declare the topic exchange for sensor data
+            exchange = await channel.declare_exchange(
+                EXCHANGES["sensor_data"],
+                aio_pika.ExchangeType.TOPIC,
+                durable=True
+            )
+            logger.info(f"[Publisher] Exchange '{EXCHANGES['sensor_data']}' declared.")
+
+            # Start publishers for each room
+            publishers = [AsyncSensorPublisher(room_id, exchange) for room_id in ROOM_IDS]
+            await asyncio.gather(*(pub.start() for pub in publishers))
+
+    except Exception as e:
+        logger.error(f"[Publisher] ❌ Error during publishing setup: {e}")
 
 if __name__ == "__main__":
-    publishers = []
     try:
-        for room_id in ROOM_IDS:
-            publisher = SensorPublisher(room_id)
-            publisher.start_publishing()
-            publishers.append(publisher)
-
-        # Keep the main thread alive
-        while True:
-            time.sleep(1)
-
+        asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("[Publisher] Keyboard interrupt received. Stopping publishers...")
-        for publisher in publishers:
-            publisher.stop_publishing()
-
+        logger.info("[Publisher] ⛔ Keyboard interrupt received. Stopping publishers...")
     finally:
-        logger.info("[Publisher] Shutting down... Done.")
+        logger.info("[Publisher] 🔁 Shutting down... Done.")
