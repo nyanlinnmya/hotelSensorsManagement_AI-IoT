@@ -52,7 +52,7 @@ SELECT
     st.vacancy_last_updated,
     st.datapoint,
     st.health_status,
-    st.last_updated
+    st.datapoint_last_updated
 FROM room_sensors s
 JOIN room_states st ON s.room_id = st.room_id;
 
