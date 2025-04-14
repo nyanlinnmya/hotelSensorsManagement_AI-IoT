@@ -7,7 +7,7 @@ from rabbitmq_management import RabbitMQManager
 
 # Logging configuration
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("sensors_subscriber")
 
 # Timezone configuration
 tz = pytz.timezone("Asia/Bangkok")
@@ -89,21 +89,25 @@ class SensorSubscriber:
             elif sensor_type == "presence":
                 if "iaq" in AGGREGATED_DATA.get(room_id, {}) and "power" in AGGREGATED_DATA.get(room_id, {}):
                     combined = self.combine_message(room_id, data)
-                    ch.basic_ack(delivery_tag=method.delivery_tag)
+                    if ch:
+                        ch.basic_ack(delivery_tag=method.delivery_tag)
                     return combined
                 else:
                     presence_msg = self.presence_only_message(room_id, data)
-                    ch.basic_ack(delivery_tag=method.delivery_tag)
+                    if ch:
+                        ch.basic_ack(delivery_tag=method.delivery_tag)
                     return presence_msg
 
             else:
                 logger.warning(f"[Subscriber] Unhandled sensor type: {sensor_type} from {routing_key}")
 
-            ch.basic_ack(delivery_tag=method.delivery_tag)
+            if ch:
+                ch.basic_ack(delivery_tag=method.delivery_tag)
 
         except Exception as e:
             logger.error(f"[Subscriber] Callback error: {e}")
-            ch.basic_nack(delivery_tag=method.delivery_tag)
+            if ch:
+                ch.basic_nack(delivery_tag=method.delivery_tag)
             return None
 
 if __name__ == "__main__":

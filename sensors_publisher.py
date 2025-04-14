@@ -35,7 +35,8 @@ class AsyncSensorPublisher:
     async def publish_iaq(self):
         while True:
             ts, dt_str = self._get_time()
-            data = self.simulator.generate_iaq_data(ts, dt_str)
+            # Call generate_iaq_data() without extra arguments
+            data = self.simulator.generate_iaq_data()
             routing_key = get_routing_key(self.room_id, "iaq")
             payload = {"room_id": self.room_id, "data": data}
             await self.publish(routing_key, payload)
@@ -44,7 +45,8 @@ class AsyncSensorPublisher:
     async def publish_presence(self):
         while True:
             ts, dt_str = self._get_time()
-            data = self.simulator.generate_presence_data(ts, dt_str)
+            # Call generate_presence_data() without extra arguments
+            data = self.simulator.generate_presence_data()
             routing_key = get_routing_key(self.room_id, "presence")
             payload = {"room_id": self.room_id, "data": data}
             await self.publish(routing_key, payload)
@@ -53,7 +55,8 @@ class AsyncSensorPublisher:
     async def publish_power(self):
         while True:
             ts, dt_str = self._get_time()
-            data = self.simulator.generate_power_data(ts, dt_str)
+            # Call generate_power_data() without extra arguments
+            data = self.simulator.generate_power_data()
             routing_key = get_routing_key(self.room_id, "power")
             payload = {"room_id": self.room_id, "data": data}
             await self.publish(routing_key, payload)
