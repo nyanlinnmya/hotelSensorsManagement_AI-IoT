@@ -111,12 +111,13 @@ class SupabaseWriter:
             """)
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS room_states (
-                    room_id TEXT PRIMARY KEY,
+                    room_id TEXT NOT NULL,
                     is_occupied BOOLEAN NOT NULL,
                     vacancy_last_updated TIMESTAMPTZ NOT NULL,
                     datapoint TEXT NOT NULL,
                     health_status TEXT CHECK (health_status IN ('healthy', 'warning', 'critical')),
-                    datapoint_last_updated TIMESTAMPTZ NOT NULL
+                    datapoint_last_updated TIMESTAMPTZ NOT NULL,
+                    PRIMARY KEY (room_id, datapoint)
                 );
             """)
             self.conn.commit()
@@ -171,7 +172,7 @@ class SupabaseWriter:
                     datapoint_last_updated
                 )
                 VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (room_id)
+                ON CONFLICT (room_id, datapoint)
                 DO UPDATE SET
                     is_occupied = EXCLUDED.is_occupied,
                     vacancy_last_updated = EXCLUDED.vacancy_last_updated,
@@ -188,7 +189,7 @@ class SupabaseWriter:
                 now
             ))
             self.conn.commit()
-            logger.info(f"🟢 Upserted room state for {room_id}")
+            logger.info(f"🟢 Upserted room state for {room_id}, datapoint={datapoint}")
         except Exception as e:
             self.conn.rollback()
             logger.error(f"❌ Failed to upsert room state: {e}")

@@ -24,10 +24,11 @@ CREATE TABLE IF NOT EXISTS room_sensors (
 
 -- Fault/occupancy state per room
 CREATE TABLE IF NOT EXISTS room_states (
-    room_id TEXT PRIMARY KEY,
+    room_id TEXT NOT NULL,
     is_occupied BOOLEAN NOT NULL,
     vacancy_last_updated TIMESTAMPTZ NOT NULL,
     datapoint TEXT NOT NULL,
     health_status TEXT CHECK (health_status IN ('healthy', 'warning', 'critical')),
-    datapoint_last_updated TIMESTAMPTZ NOT NULL
+    datapoint_last_updated TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (room_id, datapoint)
 );

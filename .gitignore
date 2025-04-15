@@ -4,4 +4,7 @@ data
 setup/rabbitmq_data
 setup/supabase_data
 setup/timescaledb_data
-hotel-iot-management
+hotel-iot-dashboard
+occupancy_detection_agent.py
+run_all.py
+setup_rabbitmq.py
