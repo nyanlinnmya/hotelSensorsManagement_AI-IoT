@@ -3,8 +3,8 @@ ROOM_IDS = ["room101",
             "room102"]
 
 RABBITMQ_CONFIG = {
-    # "host": "rabbitmq",
-    "host": "localhost",
+    "host": "rabbitmq",
+    # "host": "localhost",
     "port": 5672,
     "user": "admin",
     "password": "secret",
@@ -30,15 +30,17 @@ def get_routing_key(room_id: str, sensor_type: str) -> str:
 
 
 TIMESCALE_CONFIG = {
-    "host": "localhost",
-    "port": 5433,
+    "host": "timescaledb",
+    # "host": "localhost",
+    "port": 5432,
     "user": "admin",
     "password": "secret",
     "dbname": "sensor_data",
 }
 
 SUPABASE_CONFIG = {
-    "host": "localhost",
+    "host": "supabase",
+    # "host": "localhost",
     "port": 5432,
     "user": "postgres",
     "password": "secret",
