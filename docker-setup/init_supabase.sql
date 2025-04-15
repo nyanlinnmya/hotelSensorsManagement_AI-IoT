@@ -32,3 +32,10 @@ CREATE TABLE IF NOT EXISTS room_states (
     datapoint_last_updated TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (room_id, datapoint)
 );
+
+-- Enable Realtime for room_states
+ALTER TABLE room_states REPLICA IDENTITY FULL;
+
+-- Attach to Realtime publication (if not already done)
+CREATE PUBLICATION supabase_realtime;
+ALTER PUBLICATION supabase_realtime ADD TABLE room_states;
