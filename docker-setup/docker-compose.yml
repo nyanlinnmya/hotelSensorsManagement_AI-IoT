@@ -1,4 +1,4 @@
-
+name: hotel-iot-management 
 services:
   rabbitmq:
     image: rabbitmq:4.0-management
@@ -266,22 +266,63 @@ services:
 #   supabase-network:
 #     driver: bridge
 
-  # sensors_publisher:
-  #   build:
-  #     context: ..
-  #   container_name: sensors_publisher
-  #   command: ["python", "sensors_publisher.py"]
-  #   depends_on:
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   restart: unless-stopped
+  setup-rabbitmq:
+    container_name: setup-rabbitmq
+    build:
+      context: ..
+    command: python setup_rabbitmq.py
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: "no"  # ✅ Do NOT restart on exit
 
-  # sensors_subscriber:
-  #   build:
-  #     context: ..
-  #   container_name: sensors_subscriber
-  #   command: ["python", "sensors_subscriber.py"]
-  #   depends_on:
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   restart: unless-stopped
+  sensors-publisher:
+    container_name: sensors-publisher
+    build:
+      context: ..
+    command: python sensors_publisher.py
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  sensors-subscriber:
+    container_name: sensors-subscriber
+    build:
+      context: ..
+    command: python sensors_subscriber.py
+    depends_on:
+      - sensors-publisher
+
+  fault-detection:
+    container_name: fault-detection
+    build:
+      context: ..
+    command: python fault_detection_agent.py
+    depends_on:
+      - sensors-subscriber
+
+  occupancy-detection:
+    container_name: occupancy-detection
+    build:
+      context: ..
+    command: python occupancy_detection_agent.py
+    depends_on:
+      - sensors-subscriber
+
+  supabase-updater:
+    container_name: supabase-updater
+    build:
+      context: ..
+    command: python supabase_updater_agent.py
+    depends_on:
+      - fault-detection
+      - occupancy-detection
+
+  hotel-dashboard:
+    container_name: hotel-dashboard
+    build:
+      context: ../hotel-iot-dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - supabase-updater
