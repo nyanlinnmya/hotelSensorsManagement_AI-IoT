@@ -5,5 +5,4 @@ docker-setup/rabbitmq_data
 docker-setup/supabase_data
 docker-setup/timescaledb_data
 docker-setup/volumes
-hotel-iot-dashboard
 run_all.py
