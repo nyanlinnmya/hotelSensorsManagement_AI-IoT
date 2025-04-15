@@ -1,15 +1,7 @@
--- Create supabase_admin if it doesn't exist
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'supabase_admin') THEN
-    CREATE ROLE supabase_admin WITH LOGIN PASSWORD 'secret' SUPERUSER;
-  END IF;
-END
-$$;
+-- Create the `auth` schema first for GoTrue
+CREATE SCHEMA IF NOT EXISTS auth;
 
 -- Create the application-specific tables
-
--- Room sensor latest values
 CREATE TABLE IF NOT EXISTS room_sensors (
     room_id TEXT NOT NULL,
     timestamp INTEGER NOT NULL,
@@ -22,7 +14,6 @@ CREATE TABLE IF NOT EXISTS room_sensors (
     PRIMARY KEY (room_id, timestamp)
 );
 
--- Fault/occupancy state per room
 CREATE TABLE IF NOT EXISTS room_states (
     room_id TEXT NOT NULL,
     is_occupied BOOLEAN NOT NULL,

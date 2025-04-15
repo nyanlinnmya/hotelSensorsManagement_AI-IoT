@@ -1,8 +1,9 @@
 __pycache__
 0venvAltotechHotelSensorsManagement
 data
-setup/rabbitmq_data
-setup/supabase_data
-setup/timescaledb_data
+docker-setup/rabbitmq_data
+docker-setup/supabase_data
+docker-setup/timescaledb_data
+docker-setup/volumes
 hotel-iot-dashboard
 run_all.py

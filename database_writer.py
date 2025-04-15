@@ -5,7 +5,8 @@ import psycopg2
 from psycopg2.extras import execute_values
 import logging
 from datetime import datetime
-from config import TIMESCALE_CONFIG, SUPABASE_CONFIG
+from config import TIMESCALE_CONFIG, SUPABASE_HTTP_CONFIG
+from supabase import create_client, Client
 
 # Logger
 logging.basicConfig(level=logging.INFO)
@@ -77,129 +78,175 @@ class TimescaleDBWriter:
             self.conn.close()
             logger.info("🛑 TimescaleDB connection closed")
 
+
 class SupabaseWriter:
     def __init__(self):
-        try:
-            self.conn = psycopg2.connect(
-                host=SUPABASE_CONFIG["host"],
-                port=SUPABASE_CONFIG["port"],
-                user=SUPABASE_CONFIG["user"],
-                password=SUPABASE_CONFIG["password"],
-                dbname=SUPABASE_CONFIG["dbname"]
-            )
-            self.cursor = self.conn.cursor()
-            logger.info("✅ Connected to Supabase DB")
-            self._create_tables()
-        except Exception as e:
-            logger.error(f"❌ Failed to connect to Supabase: {e}")
-            raise
-
-    def _create_tables(self):
-        try:
-            self.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS room_sensors (
-                    room_id TEXT NOT NULL,
-                    timestamp INTEGER NOT NULL,
-                    datetime TIMESTAMPTZ NOT NULL,
-                    temperature NUMERIC NOT NULL,
-                    humidity NUMERIC NOT NULL,
-                    co2 NUMERIC NOT NULL,
-                    presence_state TEXT NOT NULL,
-                    power_data NUMERIC NOT NULL,
-                    PRIMARY KEY (room_id, timestamp)
-                );
-            """)
-            self.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS room_states (
-                    room_id TEXT NOT NULL,
-                    is_occupied BOOLEAN NOT NULL,
-                    vacancy_last_updated TIMESTAMPTZ NOT NULL,
-                    datapoint TEXT NOT NULL,
-                    health_status TEXT CHECK (health_status IN ('healthy', 'warning', 'critical')),
-                    datapoint_last_updated TIMESTAMPTZ NOT NULL,
-                    PRIMARY KEY (room_id, datapoint)
-                );
-            """)
-            self.conn.commit()
-            logger.info("✅ Ensured Supabase tables 'room_sensors' and 'room_states' exist")
-        except Exception as e:
-            self.conn.rollback()
-            logger.error(f"❌ Failed to create tables in Supabase: {e}")
+        self.supabase: Client = create_client(
+            SUPABASE_HTTP_CONFIG["url"],
+            SUPABASE_HTTP_CONFIG["key"]
+        )
+        logger.info("✅ Connected to Supabase via HTTP")
 
     def upsert_sensor_data(self, room_id: str, data: dict):
         try:
-            query = """
-                INSERT INTO room_sensors (
-                    room_id, timestamp, datetime, temperature, humidity, co2,
-                    presence_state, power_data
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (room_id, timestamp)
-                DO UPDATE SET
-                    datetime = EXCLUDED.datetime,
-                    temperature = EXCLUDED.temperature,
-                    humidity = EXCLUDED.humidity,
-                    co2 = EXCLUDED.co2,
-                    presence_state = EXCLUDED.presence_state,
-                    power_data = EXCLUDED.power_data;
-            """
-            self.cursor.execute(query, (
-                room_id,
-                data["timestamp"],
-                data["datetime"],
-                data.get("temperature", 0),
-                data.get("humidity", 0),
-                data.get("co2", 0),
-                data.get("presence_state", "unknown"),
-                data.get("power_kw_power_meter", 0),
-            ))
-            self.conn.commit()
-            logger.info(f"🟢 Upserted sensor values for {room_id}")
+            payload = {
+                "room_id": room_id,
+                "timestamp": data["timestamp"],
+                "datetime": data["datetime"],
+                "temperature": data.get("temperature", 0),
+                "humidity": data.get("humidity", 0),
+                "co2": data.get("co2", 0),
+                "presence_state": data.get("presence_state", "unknown"),
+                "power_data": data.get("power_kw_power_meter", 0)
+            }
+            self.supabase.table("room_sensors").upsert(payload).execute()
+            logger.info(f"🟢 Upserted sensor data for {room_id}")
         except Exception as e:
-            self.conn.rollback()
-            logger.error(f"❌ Failed to upsert sensor data: {e}")
+            logger.error(f"❌ Failed to upsert sensor data to Supabase: {e}")
 
     def upsert_room_state(self, room_id: str, is_occupied: bool, datapoint: str, health_status: str = "healthy"):
         try:
-            now = datetime.now()
-            query = """
-                INSERT INTO room_states (
-                    room_id,
-                    is_occupied,
-                    vacancy_last_updated,
-                    datapoint,
-                    health_status,
-                    datapoint_last_updated
-                )
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (room_id, datapoint)
-                DO UPDATE SET
-                    is_occupied = EXCLUDED.is_occupied,
-                    vacancy_last_updated = EXCLUDED.vacancy_last_updated,
-                    datapoint = EXCLUDED.datapoint,
-                    health_status = EXCLUDED.health_status,
-                    datapoint_last_updated = EXCLUDED.datapoint_last_updated;
-            """
-            self.cursor.execute(query, (
-                room_id,
-                is_occupied,
-                now,
-                datapoint,
-                health_status,
-                now
-            ))
-            self.conn.commit()
+            now = datetime.now().isoformat()
+            payload = {
+                "room_id": room_id,
+                "is_occupied": is_occupied,
+                "vacancy_last_updated": now,
+                "datapoint": datapoint,
+                "health_status": health_status,
+                "datapoint_last_updated": now
+            }
+            self.supabase.table("room_states").upsert(payload).execute()
             logger.info(f"🟢 Upserted room state for {room_id}, datapoint={datapoint}")
         except Exception as e:
-            self.conn.rollback()
-            logger.error(f"❌ Failed to upsert room state: {e}")
+            logger.error(f"❌ Failed to upsert room state to Supabase: {e}")
 
     def close(self):
-        if self.cursor:
-            self.cursor.close()
-        if self.conn:
-            self.conn.close()
-            logger.info("🛑 Supabase connection closed")
+        logger.info("🛑 SupabaseWriter does not need explicit close (HTTP connection).")
+
+
+# class SupabaseWriter:
+#     def __init__(self):
+#         try:
+#             self.conn = psycopg2.connect(
+#                 host=SUPABASE_CONFIG["host"],
+#                 port=SUPABASE_CONFIG["port"],
+#                 user=SUPABASE_CONFIG["user"],
+#                 password=SUPABASE_CONFIG["password"],
+#                 dbname=SUPABASE_CONFIG["dbname"]
+#             )
+#             self.cursor = self.conn.cursor()
+#             logger.info("✅ Connected to Supabase DB")
+#             self._create_tables()
+#         except Exception as e:
+#             logger.error(f"❌ Failed to connect to Supabase: {e}")
+#             raise
+
+#     def _create_tables(self):
+#         try:
+#             self.cursor.execute("""
+#                 CREATE TABLE IF NOT EXISTS room_sensors (
+#                     room_id TEXT NOT NULL,
+#                     timestamp INTEGER NOT NULL,
+#                     datetime TIMESTAMPTZ NOT NULL,
+#                     temperature NUMERIC NOT NULL,
+#                     humidity NUMERIC NOT NULL,
+#                     co2 NUMERIC NOT NULL,
+#                     presence_state TEXT NOT NULL,
+#                     power_data NUMERIC NOT NULL,
+#                     PRIMARY KEY (room_id, timestamp)
+#                 );
+#             """)
+#             self.cursor.execute("""
+#                 CREATE TABLE IF NOT EXISTS room_states (
+#                     room_id TEXT NOT NULL,
+#                     is_occupied BOOLEAN NOT NULL,
+#                     vacancy_last_updated TIMESTAMPTZ NOT NULL,
+#                     datapoint TEXT NOT NULL,
+#                     health_status TEXT CHECK (health_status IN ('healthy', 'warning', 'critical')),
+#                     datapoint_last_updated TIMESTAMPTZ NOT NULL,
+#                     PRIMARY KEY (room_id, datapoint)
+#                 );
+#             """)
+#             self.conn.commit()
+#             logger.info("✅ Ensured Supabase tables 'room_sensors' and 'room_states' exist")
+#         except Exception as e:
+#             self.conn.rollback()
+#             logger.error(f"❌ Failed to create tables in Supabase: {e}")
+
+#     def upsert_sensor_data(self, room_id: str, data: dict):
+#         try:
+#             query = """
+#                 INSERT INTO room_sensors (
+#                     room_id, timestamp, datetime, temperature, humidity, co2,
+#                     presence_state, power_data
+#                 )
+#                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+#                 ON CONFLICT (room_id, timestamp)
+#                 DO UPDATE SET
+#                     datetime = EXCLUDED.datetime,
+#                     temperature = EXCLUDED.temperature,
+#                     humidity = EXCLUDED.humidity,
+#                     co2 = EXCLUDED.co2,
+#                     presence_state = EXCLUDED.presence_state,
+#                     power_data = EXCLUDED.power_data;
+#             """
+#             self.cursor.execute(query, (
+#                 room_id,
+#                 data["timestamp"],
+#                 data["datetime"],
+#                 data.get("temperature", 0),
+#                 data.get("humidity", 0),
+#                 data.get("co2", 0),
+#                 data.get("presence_state", "unknown"),
+#                 data.get("power_kw_power_meter", 0),
+#             ))
+#             self.conn.commit()
+#             logger.info(f"🟢 Upserted sensor values for {room_id}")
+#         except Exception as e:
+#             self.conn.rollback()
+#             logger.error(f"❌ Failed to upsert sensor data: {e}")
+
+#     def upsert_room_state(self, room_id: str, is_occupied: bool, datapoint: str, health_status: str = "healthy"):
+#         try:
+#             now = datetime.now()
+#             query = """
+#                 INSERT INTO room_states (
+#                     room_id,
+#                     is_occupied,
+#                     vacancy_last_updated,
+#                     datapoint,
+#                     health_status,
+#                     datapoint_last_updated
+#                 )
+#                 VALUES (%s, %s, %s, %s, %s, %s)
+#                 ON CONFLICT (room_id, datapoint)
+#                 DO UPDATE SET
+#                     is_occupied = EXCLUDED.is_occupied,
+#                     vacancy_last_updated = EXCLUDED.vacancy_last_updated,
+#                     datapoint = EXCLUDED.datapoint,
+#                     health_status = EXCLUDED.health_status,
+#                     datapoint_last_updated = EXCLUDED.datapoint_last_updated;
+#             """
+#             self.cursor.execute(query, (
+#                 room_id,
+#                 is_occupied,
+#                 now,
+#                 datapoint,
+#                 health_status,
+#                 now
+#             ))
+#             self.conn.commit()
+#             logger.info(f"🟢 Upserted room state for {room_id}, datapoint={datapoint}")
+#         except Exception as e:
+#             self.conn.rollback()
+#             logger.error(f"❌ Failed to upsert room state: {e}")
+
+#     def close(self):
+#         if self.cursor:
+#             self.cursor.close()
+#         if self.conn:
+#             self.conn.close()
+#             logger.info("🛑 Supabase connection closed")
 
 # Optional: For testing
 if __name__ == "__main__":
@@ -214,17 +261,37 @@ if __name__ == "__main__":
     writer.insert_sensor_data(sample)
     writer.close()
 
+    from time import time
+
     supabase = SupabaseWriter()
 
-    test_sensor_data = {
-        "timestamp": int(datetime.now().timestamp()),
-        "datetime": datetime.now().isoformat(),
-        "temperature": 24.5,
-        "humidity": 53.2,
-        "co2": 635,
-        "presence_state": "occupied",
-        "power_kw_power_meter": 5.2
+    now = int(time())
+    iso = datetime.now().isoformat()
+
+    sensor_data = {
+        "timestamp": now,
+        "datetime": iso,
+        "temperature": 25.1,
+        "humidity": 51.7,
+        "co2": 700,
+        "presence_state": "passive",
+        "power_kw_power_meter": 4.2
     }
-    supabase.upsert_sensor_data("room101", test_sensor_data)
+
+    supabase.upsert_sensor_data("room101", sensor_data)
     supabase.upsert_room_state("room101", is_occupied=True, datapoint="co2", health_status="healthy")
-    supabase.close()
+
+    # supabase = SupabaseWriter()
+
+    # test_sensor_data = {
+    #     "timestamp": int(datetime.now().timestamp()),
+    #     "datetime": datetime.now().isoformat(),
+    #     "temperature": 24.5,
+    #     "humidity": 53.2,
+    #     "co2": 635,
+    #     "presence_state": "occupied",
+    #     "power_kw_power_meter": 5.2
+    # }
+    # supabase.upsert_sensor_data("room101", test_sensor_data)
+    # supabase.upsert_room_state("room101", is_occupied=True, datapoint="co2", health_status="healthy")
+    # supabase.close()

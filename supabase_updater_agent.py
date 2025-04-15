@@ -2,7 +2,7 @@ import asyncio
 import aio_pika
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import deque
 
 from config import ROOM_IDS, EXCHANGES, RABBITMQ_CONFIG
@@ -11,7 +11,6 @@ from database_writer import SupabaseWriter
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("OccupancyAgent")
-
 
 class RoomContextManager:
     def __init__(self):
@@ -43,7 +42,7 @@ class RoomContextManager:
         if len(history) < 2:
             return 0.0
         (t1, v1), (t2, v2) = history[0], history[-1]
-        dt_minutes = (t2 - t1) / 60  # timestamps are in seconds
+        dt_minutes = (t2 - t1) / 60
         if dt_minutes == 0:
             return 0.0
         return (v2 - v1) / dt_minutes
@@ -59,7 +58,6 @@ class RoomContextManager:
         if not last:
             return None
         return now_ts - last
-
 
 class OccupancyDetectionAgent:
     def __init__(self, occupancy_exchange: aio_pika.Exchange):
@@ -85,20 +83,15 @@ class OccupancyDetectionAgent:
         seconds_since_presence = self.context_manager.last_presence_seconds_ago(room_id, timestamp)
         last_state = self.context_manager.get_last_state(room_id)
 
-        logger.info(
-            f"[SensorData] Room={room_id} | Presence={presence_state} | CO₂={co2} | Slope={slope:.2f} | Hour={hour}"
-        )
+        logger.info(f"[SensorData] Room={room_id} | Presence={presence_state} | CO₂={co2} | Slope={slope:.2f} | Hour={hour}")
 
         if presence_state == "occupied":
             decision = True
         elif presence_state == "passive":
             if co2 > 700 or slope > 1.0:
                 decision = True
-            elif hour >= 22 or hour < 8:
-                if co2 > 650:
-                    decision = True
-                else:
-                    decision = last_state
+            elif hour >= 22 or hour < 8 and co2 > 650:
+                decision = True
             else:
                 decision = last_state
         elif presence_state == "unoccupied":
@@ -120,7 +113,6 @@ class OccupancyDetectionAgent:
         async with message.process(ignore_processed=True):
             try:
                 routing_key = message.routing_key
-                logger.info(f"[OccupancyAgent] Received from {routing_key}")
                 raw_body = message.body.decode()
                 parsed = json.loads(raw_body)
 
@@ -146,7 +138,7 @@ class OccupancyDetectionAgent:
 
                 decision = self.detect_occupancy(room_id, output)
                 if decision is None:
-                    logger.info(f"[OccupancyAgent] No clear decision for {room_id}. Holding last state.")
+                    logger.info(f"[OccupancyAgent] No decision for {room_id}. Holding last state.")
                     return
 
                 payload = {
@@ -160,18 +152,25 @@ class OccupancyDetectionAgent:
                     aio_pika.Message(body=json.dumps(payload).encode()),
                     routing_key=f"{room_id}.occupancy"
                 )
-                logger.info(f"[Publish] Room={room_id} | Occupied={decision} | Source={sensor_type} | Payload={payload}")
+                logger.info(f"[Publish] Room={room_id} | Occupied={decision} | Payload={payload}")
 
-                self.supabase_writer.upsert_room_state(
-                    room_id=room_id,
-                    is_occupied=decision,
-                    datapoint=sensor_type,
-                    health_status="healthy"
-                )
+                # ✅ Upsert ALL related datapoints into room_states
+                all_datapoints = [
+                    "temperature", "humidity", "co2",
+                    "power_kw_power_meter", "sensitivity", "online_status",
+                    "occupancy", "presence_state"
+                ]
+
+                for dp in all_datapoints:
+                    self.supabase_writer.upsert_room_state(
+                        room_id=room_id,
+                        is_occupied=decision,
+                        datapoint=dp,
+                        health_status="healthy"
+                    )
 
             except Exception as e:
-                logger.error(f"[OccupancyAgent] ❌ Error processing message: {e}")
-
+                logger.error(f"[OccupancyAgent] ❌ Error: {e}")
 
 async def main():
     logger.info("[OccupancyAgent] Connecting to RabbitMQ...")
@@ -206,9 +205,8 @@ async def main():
                 await queue.bind(sensor_exchange, routing_key=routing_key)
                 await queue.consume(agent.handle_message)
 
-        logger.info("[OccupancyAgent] 🟢 Waiting for sensor data...")
+        logger.info("[OccupancyAgent] 🟢 Listening for sensor data...")
         await asyncio.Future()
-
 
 if __name__ == "__main__":
     try:

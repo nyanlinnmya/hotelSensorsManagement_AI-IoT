@@ -39,57 +39,232 @@ services:
     restart: unless-stopped
 
 
-  supabase-postgres:
-    image: supabase/postgres:17.4.1.014
-    container_name: supabase-postgres
-    hostname: supabase-postgres
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_DB=supabase
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=secret
-      # - POSTGRES_CUSTOM_CONFIG=/etc/postgresql-custom.conf
-    volumes:
-      - ./init_supabase.sql:/docker-entrypoint-initdb.d/init_supabase.sql:ro  # Auto-execute
-      # - ./postgresql.conf:/etc/postgresql-custom.conf:ro
-  # Mount custom config
-    #  - ./supabase_data:/var/lib/postgresql/data
-    restart: unless-stopped
-  
+  # supabase-postgres:
+  #   image: supabase/postgres:15.8.1.060
+  #   container_name: supabase-postgres
+  #   environment:
+  #     POSTGRES_DB: supabase
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: secret
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - ./init_supabase.sql:/docker-entrypoint-initdb.d/init.sql:ro
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
 
-  supabase-realtime:
-    image: supabase/realtime:v2.34.46
-    container_name: supabase-realtime
-    hostname: supabase-realtime-host
-    ports:
-      - "4000:4000"  # Realtime API
-    environment:
-      - DB_HOST=supabase-postgres  # Use the hostname of the supabase-postgres container
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=secret  # Matches supabase-postgres
-      - DB_NAME=supabase
-      - DB_SSL=false
-      - JWT_SECRET=your_super_secret_jwt_32_chars_or_more  # For auth
-      - API_JWT_SECRET=your_api_secret_32_chars_or_more     # For API calls
-      - SECRET_KEY_BASE=your_generated_64_character_key_here
-      - APP_NAME=hotelSensorsManagement
-      - PORT=4000
-      - SECURE_CHANNELS=true  # Enable for production
-      - RLIMIT_NOFILE=1048576  # Set the variable
-      - FLY_ALLOC_ID=
-      - FLY_APP_NAME=
-      - RELEASE_DISTRIBUTION=none  # Disable clustering
-      - LIBCLUSTER_ENABLED=false  # Disable clustering
-    depends_on:
-      - supabase-postgres
-    restart: unless-stopped
+
+  # supabase-postgres-meta:
+  #   image: supabase/postgres-meta:v0.87.1
+  #   container_name: supabase-postgres-meta
+  #   environment:
+  #     PG_META_PORT: 8080
+  #     PG_META_DB_HOST: supabase-postgres
+  #     PG_META_DB_PORT: 5432
+  #     PG_META_DB_NAME: supabase
+  #     PG_META_DB_USER: postgres
+  #     PG_META_DB_PASSWORD: secret
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     - supabase-postgres
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
+  # supabase-auth:
+  #   image: supabase/gotrue:v2.170.0
+  #   container_name: supabase-auth
+  #   environment:
+  #     GOTRUE_DB_DRIVER: postgres
+  #     DB_NAMESPACE: auth
+  #     DB_HOST: supabase-postgres
+  #     DB_PORT: 5432
+  #     DB_USER: postgres
+  #     DB_PASSWORD: secret
+  #     DB_NAME: supabase
+  #     GOTRUE_JWT_SECRET: your_super_secure_jwt
+  #     GOTRUE_SITE_URL: http://localhost:3001
+  #     API_EXTERNAL_URL: http://localhost:8000
+  #     DATABASE_URL: postgres://postgres:secret@supabase-postgres:5432/supabase
+  #   depends_on:
+  #     supabase-postgres:
+  #       condition: service_healthy
+  #   ports:
+  #     - "9999:9999"
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
+  # supabase-rest:
+  #   image: postgrest/postgrest:v12.2.8
+  #   container_name: supabase-rest
+  #   environment:
+  #     PGRST_DB_URI: postgres://postgres:secret@supabase-postgres:5432/supabase
+  #     PGRST_DB_ANON_ROLE: anon
+  #     PGRST_JWT_SECRET: your_super_secure_jwt
+  #   depends_on:
+  #     - supabase-postgres
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
+  # supabase-realtime:
+  #   image: supabase/realtime:v2.34.43
+  #   container_name: supabase-realtime
+  #   environment:
+  #     DB_HOST: supabase-postgres
+  #     DB_PORT: 5432
+  #     DB_USER: postgres
+  #     DB_PASSWORD: secret
+  #     DB_NAME: supabase
+  #     DB_SSL: "false"
+  #     JWT_SECRET: your_super_secure_jwt
+  #     API_JWT_SECRET: your_super_secure_jwt
+  #     PORT: 4000
+  #     SECURE_CHANNELS: "false"
+  #   ports:
+  #     - "4000:4000"
+  #   ulimits:
+  #     nofile:
+  #       soft: 1048576
+  #       hard: 1048576
+  #   depends_on:
+  #     - supabase-postgres
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
+  # supabase-storage:
+  #   image: supabase/storage-api:v1.19.3
+  #   container_name: supabase-storage
+  #   environment:
+  #     POSTGREST_URL: http://supabase-rest:3000
+  #     ANON_KEY: your_super_secure_jwt
+  #     SERVICE_KEY: your_super_secure_jwt
+  #     JWT_SECRET: your_super_secure_jwt
+  #   ports:
+  #     - "5000:5000"
+  #   depends_on:
+  #     - supabase-postgres
+  #     - supabase-rest
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
+  # supabase-edge-runtime:
+  #   image: supabase/edge-runtime:v1.67.4
+  #   container_name: supabase-edge-runtime
+  #   environment:
+  #     SUPABASE_URL: http://localhost:8000
+  #     SUPABASE_ANON_KEY: your_super_secure_jwt
+  #     SUPABASE_SERVICE_ROLE_KEY: your_super_secure_jwt
+  #     VERIFY_JWT: true
+  #   depends_on:
+  #     - supabase-auth
+  #     - supabase-rest
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
+  # supabase-supavisor:
+  #   image: supabase/supavisor:2.4.14
+  #   container_name: supabase-supavisor
+  #   environment:
+  #     SECRET_KEY_BASE: 9f9b6ab5215c34c9d8f2ec8a58ee8de06d59be08c8f0d9df98a2c6b2e779b99f5c874eddb8cf928d79ab4f3e2cc50c8b
+  #     DB_HOST: supabase-postgres
+  #     DB_PORT: 5432
+  #     DB_NAME: supabase
+  #     DB_USER: postgres
+  #     DB_PASSWORD: secret
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
+
+  # supabase-kong:
+  #   image: kong:2.8.1
+  #   container_name: supabase-kong
+  #   environment:
+  #     KONG_DATABASE: "off"
+  #     KONG_DECLARATIVE_CONFIG: /kong.yml
+  #     KONG_PROXY_ACCESS_LOG: /dev/stdout
+  #     KONG_ADMIN_ACCESS_LOG: /dev/stdout
+  #     KONG_PROXY_ERROR_LOG: /dev/stderr
+  #     KONG_ADMIN_ERROR_LOG: /dev/stderr
+  #   volumes:
+  #     - ./kong.yml:/kong.yml
+  #   ports:
+  #     - "8000:8000"
+  #     - "8443:8443"
+  #   depends_on:
+  #     - supabase-auth
+  #     - supabase-rest
+  #     - supabase-storage
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
+  # supabase-studio:
+  #   image: supabase/studio:20250317-6955350
+  #   container_name: supabase-studio
+  #   environment:
+  #     SUPABASE_ANON_KEY: your_super_secure_jwt
+  #     SUPABASE_SERVICE_KEY: your_super_secure_jwt
+  #     STUDIO_PG_META_URL: http://supabase-postgres-meta:8080
+  #     SUPABASE_API_URL: http://localhost:8000
+  #   ports:
+  #     - "3001:3000"
+  #   depends_on:
+  #     - supabase-postgres
+  #     - supabase-postgres-meta
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
+
+  # vector:
+  #   image: timberio/vector:0.28.1-alpine
+  #   container_name: supabase-vector
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
+  # logflare:
+  #   image: supabase/logflare:1.12.0
+  #   container_name: supabase-logflare
+  #   environment:
+  #     LOGFLARE_NODE_HOST: "http://localhost"
+  #     DB_USERNAME: postgres
+  #     DB_PASSWORD: secret
+  #     DB_NAME: supabase
+  #   ports:
+  #     - "4001:4000"
+  #   depends_on:
+  #     - supabase-postgres
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
+  # imgproxy:
+  #   image: darthsim/imgproxy:v3.8.0
+  #   container_name: supabase-imgproxy
+  #   environment:
+  #     IMGPROXY_KEY: ""
+  #     IMGPROXY_SALT: ""
+  #     IMGPROXY_USE_ETAG: "true"
+  #     IMGPROXY_ENABLE_WEBP_DETECTION: "true"
+  #   ports:
+  #     - "5001:8080"
+  #   restart: unless-stopped
+  #   networks:
+  #     - supabase-network
+
     
-networks:
-  default:
-    name: supabase-network
-    driver: bridge
+# networks:
+#   supabase-network:
+#     driver: bridge
 
   # sensors_publisher:
   #   build:

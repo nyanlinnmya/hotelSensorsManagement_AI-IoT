@@ -4,3 +4,4 @@ aio-pika
 numpy
 pandas
 psycopg2
+supabase
