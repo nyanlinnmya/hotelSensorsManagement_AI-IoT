@@ -7,4 +7,3 @@ setup/timescaledb_data
 hotel-iot-dashboard
 occupancy_detection_agent.py
 run_all.py
-setup_rabbitmq.py
