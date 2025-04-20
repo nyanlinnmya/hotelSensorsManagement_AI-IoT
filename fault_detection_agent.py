@@ -96,6 +96,10 @@ class FaultDetectionAgent:
                     }).encode()
                 )
 
+                # This is to stop upserting when the output is None
+                if not output:
+                    return
+
                 try:
                     self.supabase_writer.upsert_sensor_data(output["device_id"], output)
                 except Exception as e:
